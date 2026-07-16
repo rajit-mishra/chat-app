@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Personal Chat App</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: #1e1f26;
+    color: #eee;
+    display: flex;
+    height: 100vh;
+  }
+
+  /* Auth screen */
+  #auth-screen {
+    margin: auto;
+    background: #2b2d38;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    width: 300px;
+  }
+  #auth-screen h1 { margin-top: 0; font-size: 22px; }
+  #auth-screen input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1e1f26;
+    color: #eee;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  #auth-screen button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    background: #5865f2;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+  #auth-screen button:hover { background: #4752c4; }
+  #auth-toggle {
+    background: none;
+    color: #8a90f5;
+    font-weight: normal;
+    font-size: 13px;
+    text-decoration: underline;
+    margin-top: 4px;
+  }
+  #auth-toggle:hover { background: none; color: #b0b4ff; }
+  #auth-error { color: #f66; font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+
+  /* Chat layout */
+  #chat-container { display: none; width: 100%; height: 100%; }
+
+  #sidebar {
+    width: 260px;
+    background: #24252f;
+    display: flex;
+    flex-direction: column;
+  }
+  #sidebar-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #sidebar-header span { font-weight: bold; font-size: 14px; }
+  #logout-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: #3a3c47;
+    color: #eee;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #logout-btn:hover { background: #4a4c57; }
+
+  #contact-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+  #contact-list li {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    border-bottom: 1px solid #2c2d38;
+  }
+  #contact-list li.clickable { cursor: pointer; }
+  #contact-list li.clickable:hover { background: #2c2d38; }
+  #contact-list li.active { background: #363848; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #555; flex-shrink: 0; }
+  .status-dot.online { background: #3ba55d; }
+  .contact-name { flex: 1; }
+  .no-contacts { padding: 16px; font-size: 13px; color: #888; }
+
+  .req-btn {
+    border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px;
+    cursor: pointer; font-weight: bold;
+  }
+  .req-btn.send { background: #5865f2; color: white; }
+  .req-btn.send:hover { background: #4752c4; }
+  .req-btn.accept { background: #3ba55d; color: white; }
+  .req-btn.accept:hover { background: #2f8a4c; }
+  .req-btn.reject { background: #3a3c47; color: #ccc; margin-left: 4px; }
+  .req-btn.reject:hover { background: #4a4c57; }
+  .pending-label { font-size: 12px; color: #888; font-style: italic; }
+
+  #main { flex: 1; display: flex; flex-direction: column; }
+  #chat-header {
+    padding: 14px 20px;
+    background: #24252f;
+    border-bottom: 1px solid #333;
+    font-weight: bold;
+    display: none;
+  }
+  #empty-state { margin: auto; color: #666; font-size: 15px; text-align: center; max-width: 320px; line-height: 1.5; }
+  #messages { flex: 1; overflow-y: auto; padding: 16px; display: none; }
+  .msg { margin-bottom: 10px; max-width: 70%; }
+  .msg .meta { font-size: 12px; color: #999; margin-bottom: 2px; }
+  .msg .bubble {
+    background: #2b2d38; padding: 8px 12px; border-radius: 8px;
+    display: inline-block; word-wrap: break-word;
+  }
+  .msg.own { margin-left: auto; text-align: right; }
+  .msg.own .bubble { background: #5865f2; }
+  .system-msg { text-align: center; color: #3ba55d; font-size: 13px; margin: 8px 0; font-weight: bold; }
+  #typing-indicator { font-size: 12px; color: #888; height: 18px; padding: 0 16px; }
+
+  #chat-form { display: none; padding: 12px; background: #24252f; gap: 8px; }
+  #chat-form input {
+    flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #444;
+    background: #1e1f26; color: #eee;
+  }
+  #chat-form button {
+    width: 90px; border: none; border-radius: 6px; background: #5865f2;
+    color: white; font-weight: bold; cursor: pointer;
+  }
+
+  #toast {
+    position: fixed; top: 16px; right: 16px; background: #3ba55d; color: white;
+    padding: 12px 18px; border-radius: 8px; font-size: 14px; font-weight: bold;
+    display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 999;
+  }
+</style>
+</head>
+<body>
+
+  <div id="toast"></div>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen">
+    <h1 id="auth-title">💬 Log In</h1>
+    <div id="auth-error"></div>
+    <input id="username-input" type="text" placeholder="Username" maxlength="20" />
+    <input id="password-input" type="password" placeholder="Password" maxlength="50" />
+    <button id="auth-submit-btn">Log In</button>
+    <button id="auth-toggle" type="button">Account nahi hai? Sign up karo</button>
+  </div>
+
+  <!-- Chat Screen -->
+  <div id="chat-container">
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <span id="my-username"></span>
+        <button id="logout-btn">Log Out</button>
+      </div>
+      <ul id="contact-list"></ul>
+    </div>
+    <div id="main">
+      <div id="chat-header"></div>
+      <div id="empty-state">👈 Kisi user ko request bhejo. Jab wo accept kar le, tabhi chat shuru hogi.</div>
+      <div id="messages"></div>
+      <div id="typing-indicator"></div>
+      <form id="chat-form">
+        <input id="message-input" type="text" placeholder="Type a message..." autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let socket = null;
+    let myUsername = '';
+    let myToken = localStorage.getItem('chat_token') || '';
+    let mode = 'login';
+    let onlineUsers = new Set();
+    let allUsers = [];
+    let currentChatWith = null;
+
+    let connections = new Set();     // users I'm allowed to chat with
+    let sentRequests = new Set();    // requests I've sent, awaiting response
+    let receivedRequests = new Set(); // requests waiting for MY response
+
+    const conversations = {}; // { username: [ {from, to, text, time} ] }
+
+    const authScreen = document.getElementById('auth-screen');
+    const authTitle = document.getElementById('auth-title');
+    const authError = document.getElementById('auth-error');
+    const authSubmitBtn = document.getElementById('auth-submit-btn');
+    const authToggle = document.getElementById('auth-toggle');
+    const usernameInput = document.getElementById('username-input');
+    const passwordInput = document.getElementById('password-input');
+
+    const chatContainer = document.getElementById('chat-container');
+    const myUsernameEl = document.getElementById('my-username');
+    const contactList = document.getElementById('contact-list');
+    const chatHeader = document.getElementById('chat-header');
+    const emptyState = document.getElementById('empty-state');
+    const messagesDiv = document.getElementById('messages');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const logoutBtn = document.getElementById('logout-btn');
+    const toast = document.getElementById('toast');
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    // ---- Toggle Login / Signup ----
+    authToggle.addEventListener('click', () => {
+      mode = mode === 'login' ? 'signup' : 'login';
+      authError.textContent = '';
+      if (mode === 'signup') {
+        authTitle.textContent = '📝 Sign Up';
+        authSubmitBtn.textContent = 'Sign Up';
+        authToggle.textContent = 'Pehle se account hai? Log in karo';
+      } else {
+        authTitle.textContent = '💬 Log In';
+        authSubmitBtn.textContent = 'Log In';
+        authToggle.textContent = 'Account nahi hai? Sign up karo';
+      }
+    });
+
+    authSubmitBtn.addEventListener('click', submitAuth);
+    passwordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
+
+    async function submitAuth() {
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      authError.textContent = '';
+      if (!username || !password) {
+        authError.textContent = 'Username aur password dono bharo';
+        return;
+      }
+      const endpoint = mode === 'signup' ? '/api/signup' : '/api/login';
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          authError.textContent = data.error || 'Kuch galat ho gaya';
+          return;
+        }
+        myUsername = data.username;
+        myToken = data.token;
+        localStorage.setItem('chat_token', myToken);
+        enterChat();
+      } catch (err) {
+        authError.textContent = 'Server se connect nahi ho paya';
+      }
+    }
+
+    async function tryAutoLogin() {
+      if (!myToken) return;
+      try {
+        const res = await fetch('/api/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: myToken })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          myUsername = data.username;
+          enterChat();
+        } else {
+          localStorage.removeItem('chat_token');
+        }
+      } catch {}
+    }
+
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('chat_token');
+      if (socket) socket.disconnect();
+      location.reload();
+    });
+
+    async function enterChat() {
+      authScreen.style.display = 'none';
+      chatContainer.style.display = 'flex';
+      myUsernameEl.textContent = myUsername;
+
+      const res = await fetch('/api/users');
+      allUsers = (await res.json()).filter((u) => u !== myUsername);
+      renderContactList();
+
+      connectSocket();
+    }
+
+    function renderContactList() {
+      contactList.innerHTML = '';
+      if (allUsers.length === 0) {
+        contactList.innerHTML = '<li class="no-contacts">Abhi koi aur user signup nahi hua</li>';
+        return;
+      }
+      allUsers.forEach((u) => {
+        const li = document.createElement('li');
+        const dot = document.createElement('span');
+        dot.className = 'status-dot' + (onlineUsers.has(u) ? ' online' : '');
+        const name = document.createElement('span');
+        name.className = 'contact-name';
+        name.textContent = u;
+        li.appendChild(dot);
+        li.appendChild(name);
+
+        if (connections.has(u)) {
+          li.classList.add('clickable');
+          if (u === currentChatWith) li.classList.add('active');
+          li.addEventListener('click', () => openChat(u));
+        } else if (receivedRequests.has(u)) {
+          const acceptBtn = document.createElement('button');
+          acceptBtn.className = 'req-btn accept';
+          acceptBtn.textContent = 'Accept';
+          acceptBtn.addEventListener('click', (e) => { e.stopPropagation(); acceptRequest(u); });
+          const rejectBtn = document.createElement('button');
+          rejectBtn.className = 'req-btn reject';
+          rejectBtn.textContent = '✕';
+          rejectBtn.addEventListener('click', (e) => { e.stopPropagation(); rejectRequest(u); });
+          li.appendChild(acceptBtn);
+          li.appendChild(rejectBtn);
+        } else if (sentRequests.has(u)) {
+          const label = document.createElement('span');
+          label.className = 'pending-label';
+          label.textContent = 'Request sent';
+          li.appendChild(label);
+        } else {
+          const sendBtn = document.createElement('button');
+          sendBtn.className = 'req-btn send';
+          sendBtn.textContent = 'Send Request';
+          sendBtn.addEventListener('click', (e) => { e.stopPropagation(); sendRequest(u); });
+          li.appendChild(sendBtn);
+        }
+
+        contactList.appendChild(li);
+      });
+    }
+
+    function sendRequest(u) {
+      socket.emit('send-request', u);
+    }
+    function acceptRequest(u) {
+      socket.emit('accept-request', u);
+    }
+    function rejectRequest(u) {
+      socket.emit('reject-request', u);
+    }
+
+    function openChat(username) {
+      if (!connections.has(username)) return;
+      currentChatWith = username;
+      renderContactList();
+      chatHeader.style.display = 'block';
+      chatHeader.textContent = username + (onlineUsers.has(username) ? ' 🟢' : ' (offline)');
+      emptyState.style.display = 'none';
+      messagesDiv.style.display = 'block';
+      chatForm.style.display = 'flex';
+      renderMessages();
+      socket.emit('open-chat', username);
+      messageInput.focus();
+    }
+
+    function renderMessages() {
+      messagesDiv.innerHTML = '';
+      const msgs = conversations[currentChatWith] || [];
+      msgs.forEach(addMessageToDOM);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function addMessageToDOM(data) {
+      const div = document.createElement('div');
+      div.className = 'msg' + (data.from === myUsername ? ' own' : '');
+      div.innerHTML = `<div class="meta"></div><div class="bubble"></div>`;
+      div.querySelector('.meta').textContent = `${data.from} • ${data.time}`;
+      div.querySelector('.bubble').textContent = data.text;
+      messagesDiv.appendChild(div);
+    }
+
+    function connectSocket() {
+      socket = io();
+
+      socket.on('connect', () => {
+        socket.emit('join', { token: myToken });
+      });
+
+      socket.on('auth-error', (msg) => {
+        alert(msg);
+        localStorage.removeItem('chat_token');
+        location.reload();
+      });
+
+      socket.on('my-status', (status) => {
+        connections = new Set(status.connections);
+        sentRequests = new Set(status.sentRequests);
+        receivedRequests = new Set(status.receivedRequests);
+        renderContactList();
+      });
+
+      socket.on('online-list', (users) => {
+        onlineUsers = new Set(users.filter((u) => u !== myUsername));
+        renderContactList();
+        if (currentChatWith) {
+          chatHeader.textContent = currentChatWith + (onlineUsers.has(currentChatWith) ? ' 🟢' : ' (offline)');
+        }
+      });
+
+      socket.on('request-sent-ack', (to) => {
+        sentRequests.add(to);
+        renderContactList();
+      });
+
+      socket.on('incoming-request', (from) => {
+        receivedRequests.add(from);
+        renderContactList();
+        showToast(`${from} ne aapko chat request bheji hai`);
+      });
+
+      socket.on('request-rejected-ack', (from) => {
+        receivedRequests.delete(from);
+        renderContactList();
+      });
+
+      // Fired for BOTH people once a request is accepted
+      socket.on('connection-established', ({ withUser, iAccepted }) => {
+        connections.add(withUser);
+        sentRequests.delete(withUser);
+        receivedRequests.delete(withUser);
+        renderContactList();
+
+        if (iAccepted) {
+          showToast(`Ab aap ${withUser} se chat kar sakte ho`);
+        } else {
+          showToast(`Your request accepted by ${withUser}! 🎉`);
+        }
+      });
+
+      socket.on('not-connected', (otherUser) => {
+        alert(`Pehle ${otherUser} ko request bhejo aur unse accept karwao, tabhi chat kar sakte ho.`);
+      });
+
+      socket.on('chat-history', ({ withUser, messages }) => {
+        conversations[withUser] = messages;
+        if (currentChatWith === withUser) renderMessages();
+      });
+
+      socket.on('private-message', (data) => {
+        const otherUser = data.from === myUsername ? data.to : data.from;
+        if (!conversations[otherUser]) conversations[otherUser] = [];
+        conversations[otherUser].push(data);
+        if (currentChatWith === otherUser) {
+          addMessageToDOM(data);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+      });
+
+      let typingTimeout;
+      socket.on('typing', (fromUser) => {
+        if (fromUser !== currentChatWith) return;
+        typingIndicator.textContent = `${fromUser} is typing...`;
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => { typingIndicator.textContent = ''; }, 1500);
+      });
+    }
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text || !socket || !currentChatWith) return;
+      socket.emit('private-message', { to: currentChatWith, text });
+      messageInput.value = '';
+    });
+
+    messageInput.addEventListener('input', () => {
+      if (socket && currentChatWith) socket.emit('typing', currentChatWith);
+    });
+
+    tryAutoLogin();
+  </script>
+</body>
+</html>
